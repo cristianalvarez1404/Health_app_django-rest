@@ -30,4 +30,68 @@ class PatientProfile(models.Model):
   id = models.UUIDField(primary_key = True, default=uuid.uuid4, editable=False)
   user = models.OneToOneField(User, on_delete=models.CASCADE, 
                               related_name='patient_profile', limit_choices_to={'role':'patient'})
+  avatar = models.ImageField(upload_to='patients/avatars/', blank=True, null=True)
+  bio = models.TextField(max_length=500, blank=True)
+  date_of_birth = models.DateTimeField(blank=True, null = True)
+  gender = models.CharField(max_length=20, choices=GENDER_CHOICES, blank=True)
+  phone_regex = RegexValidator(regex= r'^\+?1?\d{9,15}$', message="Phone number must to be entered in format: '+99999999' . Up to 15 digits allowed.")
+  phone_number = models.CharField(validators=[phone_regex], max_length=17, blank=True)
+  address = models.TextField(max_length=300, blank=True)
+  city = models.CharField(max_length=100, blank=True)
+  country = models.CharField(max_length=100, blank=True)
+  postal_code = models.CharField(max_length=20, blank=True)
+  emergency_contact_name = models.CharField(max_length=100, blank=True)
+  emergency_contact_phone = models.CharField(validators=[phone_regex],max_length=17,blank=True)
+  emergency_contact_relationship = models.CharField(max_length=50, blank=True)
+  blood_type = models.CharField(max_length=10, choices=BLOOD_TYPE_CHOICES, blank=True)
+  allergies = models.JSONField(default=list, blank=True, help_text='List of allergies')
+  chronic_conditions = models.JSONField(default=list, blank=True, help_text='List of chronic conditions')
+  current_medications = models.JSONField(default=list, blank=True, help_text='List of current medications')
+  medical_notes = models.TextField(blank=True, help_text="Additional medical information")
+  share_medical_history = models.BooleanField(default=True)
+  allow_emergency_access = models.BooleanField(default=True)
+  preffered_lenguage = models.CharField(max_length=10, default='en')
+  created_at = models.DateField(auto_now_add=True)
+  updated_at = models.DateField(auto_now=True)
 
+  class Meta:
+    db_table = 'patient_profiles'
+    verbose_name = 'Patient Profile'
+    verbose_name_plural = 'Patient Profiles'
+    indexes = [
+      models.Index(fields=['user']),
+      models.Index(fields=['created_at'])
+    ]
+  
+  def __str__(self):
+    return f"{self.user.full_name} - Patient Profile"
+
+  @property
+  def avatar_url(self):
+    if self.avatar:
+      return self.avatar.url
+    return None
+
+  @property
+  def age(self):
+    if self.date_of_birth:
+      today = timezone.now().date
+      return today.year - self.date_of_birth.year - (today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day)
+    return None
+
+  def clean(self):
+    if self.user and self.user.role != 'patient':
+      from django.core.exceptions import ValidationError
+      raise ValidationError("User must have 'patient' role")
+
+class PatientMedicalHistory(models.Model):
+  """Detailed medical history records for patients"""
+  RECORD_TYPE_CHOICES = [
+    ('diagnosis', 'Diagnosis'),
+    ('procedure','Medical Procedure'),
+    ('surgery','Surgery'),
+    ('hospitalization','Hospitalization'),
+    ('vaccination','Vaccination'),
+    ('test_result','Test result'),
+    ('other','Other')
+  ] 
