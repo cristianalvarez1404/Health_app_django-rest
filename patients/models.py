@@ -95,3 +95,21 @@ class PatientMedicalHistory(models.Model):
     ('test_result','Test result'),
     ('other','Other')
   ] 
+
+  id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+  patient = models.ForeignKey(PatientProfile, on_delete=models.CASCADE, related_name="medical_history")
+  record_type = models.CharField(max_length=20, choices=RECORD_TYPE_CHOICES)
+  title = models.CharField(max_length=200)
+  description = models.TextField()
+  date_occurred = models.DateField()
+  healthcare_provider = models.CharField(max_length=200, blank=True)
+  attachments = models.JSONField(decoder=list, blank=True)
+  created_at = models.DateTimeField(auto_now_add=True)
+  updated_at = models.DateTimeField(auto_now=True)
+  
+  class Meta:
+    db_table = 'patient_medical_history'
+    ordering = ['-data_occurred', '-created_at']
+
+  def __str__(self):
+    return f"{self.patient.user.full_name} - {self.title}"
