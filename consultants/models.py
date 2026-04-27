@@ -102,6 +102,69 @@ class ConsultantProfile(models.Model):
       from django.core.exceptions import ValidationError
       raise ValidationError("User must have 'consultant' role")
     
+class ConsultantReview(models.Model):
+  """Reviews and ratings for consultants"""
+  RATING_CHOICE = [(i, f"{i} Star{'s' if i != 1 else ''}") for i in range(1, 6)]
+  id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+  consultant = models.ForeignKey(ConsultantProfile, on_delete=models.CASCADE, related_name='reviews')
+  patient = models.ForeignKey(User, on_delete=models.CASCADE, limit_choices_to={'role': 'patient'})
+  rating = models.IntegerField(choices=RATING_CHOICE)
+  review_text = models.TextField(max_length=1000, blank=True)
+  is_verified_consultation = models.BooleanField(default=False)
+  is_anonymous = models.BooleanField(default=False)
+  created_at = models.DateTimeField(auto_now_add=True)
+  updated_at = models.DateTimeField(auto_now=True)
+  
+  class Meta:
+    db_table = 'consultant_reviews'
+    unique_together = ['consultant', 'patient']
+    ordering = ['-created_at']
+    indexes = [
+      models.Index(fields=['consultant', 'rating']),
+      models.Index(fields=['created_at'])
+    ]
+  
+  def __str__(self):
+    patient_name = "Anonymous" if self.is_anonymous else self.patient.full_name
+    return f"{patient_name} -> Dr. {self.consultant.user.full_name} ({self.rating} *)"
+
+  def save(self, *args, **kwargs):
+    super().save(*args, **kwargs)
+    self.consultant.update_rating()
+
+class ConsultantAvailability(models.Model):
+  """Specific availability slots for consultants"""
+
+  DAY_CHOICES = [
+    (0, 'Monday'),
+    (1, 'Tuesday'),
+    (2, 'Wednesday'),
+    (3, 'Thurday'),
+    (4, 'Friday'),
+    (5, 'Saturday'),
+    (6, 'Sunday')
+  ]
+
+  id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+  consultant = models.ForeignKey(ConsultantProfile, on_delete=models.CASCADE, related_name='availability_slots')
+  day_of_week = models.IntegerField(choices=DAY_CHOICES)
+  start_time = models.TimeField()
+  end_time = models.TimeField()
+  is_active = models.BooleanField(default=True)
+  created_at = models.DateTimeField(auto_now_add=True)
+  updated_at = models.DateTimeField(auto_now=True)
+
+  class Meta:
+    db_table = 'consultant_availability'
+    unique_together = ['consultant', 'day_of_week', 'start_time']
+    ordering = ['day_of_week', 'start_time']
+
+  def __str__(self):
+    return f"Dr. {self.consultant.user.full_name} - {self.get_day_of_week_display()} {self.start_time} - {self.end_time}"
+  
+  
+
+
 
 
 
